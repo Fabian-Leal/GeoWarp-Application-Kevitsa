@@ -1,5 +1,5 @@
 # main.R -------------------------------------------------------------------
-setwd("C:/Users/23478671/Github/Geowarp-Resource-Estimation/GeoWarp_resource_estimation/application_kevitsa")
+setwd("C:/Users/23478671/Github/GeoWarp-Application-Kevitsa")
 source("helper_functions/00_utils_io.R")
 source("helper_functions/01_preprocess.R")
 source("helper_functions/02_split.R")

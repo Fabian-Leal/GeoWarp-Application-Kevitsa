@@ -1,5 +1,5 @@
 .libPaths("C:/Users/23478671/R_libs")
-setwd("C:/Users/23478671/Github/Geowarp-Resource-Estimation/GeoWarp_resource_estimation/application_kevitsa")
+setwd("C:/Users/23478671/Github/GeoWarp-Application-Kevitsa")
 source("helper_functions/00_utils_io.R")   # load_raw()
 source("helper_functions/01_preprocess.R") # depth_filter(), normalise_xyz_target()
 source("helper_functions/02_split.R")      # km_split()
@@ -227,76 +227,78 @@ print(grids$gw_fit_noWarp)
 
 
 # ── 0. Build combined data-frame --------------------------------------------
-preds_long <- profiles_all %>% 
-  mutate(
-    fit = sub(paste0("_", target, "$"), "", model)   # gw_fit_Ag_ppm → gw_fit
-  ) %>% 
-  select(target, fit, value = mean)
+drop_sk <- TRUE     # toggle SK on/off
+trim_p  <- 0.02
+n_bins  <- 80
 
-test_long <- map_dfr(names(test_list), function(tg) {
+# ── 0. long table ------------------------------------------------------------
+preds_long <- profiles_all %>% 
+  transmute(
+    target,
+    fit   = model,          # keep raw for now
+    value = mean
+  )
+
+test_long <- purrr::imap_dfr(test_list, \(ts, tg) {
   tibble(
     target = tg,
     fit    = "test points",
-    value  = unnorm_vec(test_list[[tg]]$target, ranges_list[[tg]]$target)
+    value  = unnorm_vec(ts$target, ranges_list[[tg]]$target)
   )
 })
 
 hist_df <- bind_rows(preds_long, test_long)
 
-# ── 1. Drop SK if requested, rename GeoWarp variants, keep NAs already "test points" ─
-drop_sk <- TRUE
+# ── 1. clean 'fit': strip metal suffix, rename GeoWarp variants, drop SK -----
 hist_df2 <- hist_df %>% 
-  { if (drop_sk) filter(., fit != "sk") else . } %>% 
   mutate(
-    fit = recode(
-      fit,
-      "gw_fit"        = "gw_dd",
-      "gw_fit_noWarp" = "gw_lw"
-    )
-  )
+    fit = tidyr::replace_na(fit, "test points"),
+    
+    # a) remove trailing "_Metal_Units" pattern
+    fit = sub("(_[^_]+_[^_]+)$", "", fit),   # gw_fit_Ag_ppm → gw_fit
+    
+    # b) recode GeoWarp names
+    fit = recode(fit,
+                 "gw_fit"        = "gw_dd",
+                 "gw_fit_noWarp" = "gw_lw"),
+    
+    # c) optional SK drop
+    fit = ifelse(drop_sk & fit == "sk", NA_character_, fit)
+  ) %>% 
+  filter(!is.na(fit))            # actually remove rows just set to NA
 
-# ── 2. Compute 2 %–98 % limits per target for test points --------------------
-trim_p <- 0.02
-tp_limits <- hist_df2 %>%
-  filter(fit == "test points") %>%
-  group_by(target) %>%
+# ── 2. per-target 2 % tail trim for test points ------------------------------
+tp_limits <- hist_df2 %>% 
+  filter(fit == "test points") %>% 
+  group_by(target) %>% 
   summarise(
-    lo = quantile(value, trim_p,       na.rm = TRUE),
+    lo = quantile(value,  trim_p,      na.rm = TRUE),
     hi = quantile(value, 1 - trim_p,   na.rm = TRUE),
     .groups = "drop"
   )
 
-# ── 3. Trim only the test-point rows outside those limits --------------------
-hist_df2 <- hist_df2 %>%
-  left_join(tp_limits, by = "target") %>%
+hist_df2 <- hist_df2 %>% 
+  left_join(tp_limits, by = "target") %>% 
   filter(
     fit != "test points" |
       (value >= lo & value <= hi)
-  ) %>%
+  ) %>% 
   select(-lo, -hi)
 
-# ── 4. Palette: grey for test points, hues for everything else --------------
+# ── 3. palette ----------------------------------------------------------------
 other_fits <- setdiff(unique(hist_df2$fit), "test points")
 pal        <- c(setNames(hue_pal()(length(other_fits)), other_fits),
                 "test points" = "grey60")
 
-# ── 5. Plot ------------------------------------------------------------------
-n_bins <- 80
-
+# ── 4. plot -------------------------------------------------------------------
 ggplot(hist_df2, aes(value, fill = fit, colour = fit)) +
-  geom_histogram(position = "identity", alpha = 0.35, bins = n_bins) +
+  geom_histogram(position = "identity", alpha = .35, bins = n_bins) +
   facet_wrap(~ target, scales = "free") +
-  scale_fill_manual(values = pal) +
-  scale_colour_manual(values = pal) +
-  labs(
-    x      = "Grade (log units)",
-    y      = "Count",
-    fill   = "Model / Source",
-    colour = "Model / Source"
-  ) +
+  scale_fill_manual(values = pal, name = "Fit") +
+  scale_colour_manual(values = pal, guide = "none") +   # single legend
+  labs(x = "Grade (log units)", y = "Count") +
   theme_minimal() +
   theme(legend.position = "bottom")
-
 
 
 
@@ -333,7 +335,7 @@ warp_plots <- purrr::map(model_files, function(mf) {
   
   # 4 ── back-transform to original units
   warping_df$z_raw        <- unnorm_vec(warping_df$z,        rng_z)
-
+  
   # 5 ── plot in real depth units
   ggplot(warping_df, aes(z_raw, z_warped)) +
     geom_line() +
@@ -348,4 +350,10 @@ warp_plots <- purrr::map(model_files, function(mf) {
 })
 
 wrap_plots(warp_plots, ncol = 2)   # display all warp curves
+
+
+
+
+
+
 

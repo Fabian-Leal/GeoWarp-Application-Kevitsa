@@ -3,7 +3,7 @@ library(dplyr)
 library(purrr)
 library(geowarp)
 
-setwd("C:/Users/23478671/Github/Geowarp-Resource-Estimation/GeoWarp_resource_estimation/application_kevitsa")
+setwd("C:/Users/23478671/Github/GeoWarp-Application-Kevitsa")
 source("helper_functions/00_utils_io.R")   # load_raw()
 source("helper_functions/01_preprocess.R") # depth_filter(), normalise_xyz_target()
 source("helper_functions/02_split.R")      # km_split()
