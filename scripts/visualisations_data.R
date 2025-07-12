@@ -81,6 +81,4 @@ stats_tbl <- summary_stats(csv, grade_vars)
 
 print(stats_tbl, digits = 3)
 
-knitr::kable(stats_tbl, format = "latex", digits = 3,
-             caption = "Whole–dataset summary statistics (log scale).")
 

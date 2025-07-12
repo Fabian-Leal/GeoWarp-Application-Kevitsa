@@ -223,6 +223,9 @@ print(grids$gw_fit_noWarp)
 
 
 
+
+
+
 # ── 0. Build combined data-frame --------------------------------------------
 drop_sk <- TRUE     # toggle SK on/off
 trim_p  <- 0.02
@@ -303,13 +306,6 @@ ggplot(hist_df2, aes(value, fill = fit, colour = fit)) +
 
 
 
-
-
-
-
-
-
-
 ###################### WARPINGS #############
 
 
@@ -359,12 +355,5 @@ wrap_plots(warp_plots, ncol = 2)   # display all warp curves
 
 
 
-gw_files <- model_files[grepl("^gw_", basename(model_files), ignore.case = TRUE)]
-
-# read every fit into a named list you can inspect
-gw_fits  <- setNames(lapply(gw_files, readRDS), basename(gw_files))
-
-# quick peek at what you have
-str(gw_fits, max.level = 1)
 
 
