@@ -49,15 +49,13 @@ depth_profile_plot <- function(df,
   }
   
   # ── 3. depth limits and “nice” 10-tick grid ---------------------------
-  y_top <- max(binned$bin) + 0.20 * bin_size
-  y_bot <- min(binned$bin) - 0.20 * bin_size
-  range_m <- y_top - y_bot                           # profile thickness
+  y_top  <- max(binned$bin) + 0.20 * bin_size
+  y_bot  <- min(binned$bin) - 0.20 * bin_size
+  range_m <- y_top - y_bot
   
-  # choose spacing: the smallest multiple of 10 that gives ≤ 9 intervals
   step <- ceiling(range_m / 9 / 10) * 10
-  step <- max(step, 10)                              # safety
+  step <- max(step, 10)
   
-  # round top to next multiple of 10, then build 10 ticks downward
   first_tick <- ceiling(y_top / 10) * 10
   y_breaks   <- seq(first_tick, by = -step, length.out = 10)
   
@@ -74,14 +72,21 @@ depth_profile_plot <- function(df,
     ggplot2::scale_y_reverse(
       limits = c(y_top, y_bot),
       breaks = y_breaks,
-#      name   = ""
-      name = "Depth (m)"
+      name   = "Depth (m)"
     ) +
     ggplot2::labs(
       x = paste0("log(", var_name, ")"),
       title = NULL
     ) +
-    ggplot2::theme_minimal()
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      panel.grid.major = ggplot2::element_line(
+        colour = "#f4f4f4", size = 0.2        # ← very light grey, thin line
+      ),
+      panel.grid.minor = ggplot2::element_blank(), # ← remove minor grid
+      axis.line        = ggplot2::element_line(),
+      axis.ticks       = ggplot2::element_line()
+    )
   
   # ── 5. add count bars if selected -------------------------------------
   if (show_counts) {
@@ -103,6 +108,7 @@ depth_profile_plot <- function(df,
   
   return(p)
 }
+
 
 
 ## ------------------------------------------------------------------------
@@ -518,3 +524,94 @@ example_and_mean_profile_plots <- function(df,
   # 5) combine
   p1 + p2 + plot_layout(ncol = 2)
 }
+
+plot_train_test_3d <- function(df,
+                               ranges       = NULL,
+                               colour_train = "#1ABC9C",
+                               colour_test  = "#E67E22") {
+  
+  # back‐transform if needed
+  if (!is.null(ranges)) {
+    unscale <- function(v, rng) v * (rng$max - rng$min) + rng$min
+    df <- df %>%
+      mutate(
+        easting   = unscale(x, ranges$x),
+        northing  = unscale(y, ranges$y),
+        elevation = unscale(z, ranges$z)
+      )
+  } else {
+    df <- df %>%
+      rename(easting = x, northing = y, elevation = z)
+  }
+  
+  # shift to zero‐origin
+  df <- df %>%
+    mutate(
+      easting  = easting - min(easting, na.rm = TRUE),
+      northing = northing - min(northing, na.rm = TRUE),
+      depth    = elevation
+    )
+  
+  # compute spans for aspect ratio
+  rx <- diff(range(df$easting,  na.rm = TRUE))
+  ry <- diff(range(df$northing, na.rm = TRUE))
+  rz <- diff(range(df$depth,    na.rm = TRUE))
+  max_ext <- max(rx, ry, rz)
+  ar <- list(x = rx/max_ext, y = ry/max_ext, z = rz/max_ext)
+  
+  # compute depth ticks
+  depth_ticks <- pretty(range(df$depth, na.rm = TRUE))
+  cols <- c(Train = colour_train, Test = colour_test)
+  
+  plot_ly(
+    df,
+    x         = ~easting,
+    y         = ~northing,
+    z         = ~depth,
+    color     = ~split,
+    colors    = cols,
+    type      = "scatter3d",
+    mode      = "markers",
+    marker    = list(size = 1.3, opacity = 0.8),
+    showlegend = FALSE            # <- turn legend off here
+  ) %>%
+    layout(
+      showlegend = FALSE,         # <- and here, for completeness
+      scene  = list(
+        aspectmode  = "manual",
+        aspectratio = ar,
+        xaxis = list(
+          title     = "Easting (m)",
+          range     = c(0, max(df$easting, na.rm = TRUE)),
+          gridcolor = "rgba(0,0,0,0.1)",
+          gridwidth = 1,
+          zeroline  = FALSE,
+          showline  = FALSE
+        ),
+        yaxis = list(
+          title     = "Northing (m)",
+          range     = c(0, max(df$northing, na.rm = TRUE)),
+          gridcolor = "rgba(0,0,0,0.1)",
+          gridwidth = 1,
+          zeroline  = FALSE,
+          showline  = FALSE
+        ),
+        zaxis = list(
+          title    = "Depth (m)",
+          tickmode = "array",
+          tickvals = depth_ticks,
+          ticktext = as.character(-depth_ticks),
+          range    = c(min(df$depth, na.rm = TRUE),
+                       max(df$depth, na.rm = TRUE)),
+          gridcolor = "rgba(0,0,0,0.1)",
+          gridwidth = 1,
+          zeroline  = FALSE,
+          showline  = FALSE
+        ),
+        xaxis5 = list(showbackground = FALSE),
+        yaxis5 = list(showbackground = FALSE),
+        zaxis5 = list(showbackground = FALSE)
+      )
+    )
+}
+

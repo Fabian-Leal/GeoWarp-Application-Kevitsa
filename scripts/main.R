@@ -16,7 +16,7 @@ csv  <- "cluster_0_data.csv"
 # 1. load & pre-process
 set.seed(1)
 #raw   <- load_raw(csv, sample_frac = 1)
-raw <- load_raw(csv, var = "Cu_pct", sample_frac = 1)
+raw <- load_raw(csv, var = "Ni_pct", sample_frac = 1)
 
 depth_profile_plot(raw)
 
@@ -38,7 +38,9 @@ plot_df <- bind_rows(
   train %>% mutate(split = "Train"),
   test  %>% mutate(split = "Test")
 )
-train_test_scatter3D(plot_df, ranges = ranges)
+#train_test_scatter3D(plot_df, ranges = ranges)
+plot_train_test_3d(plot_df, ranges = ranges)
+
 
 #train_test_scatter3D(plot_df)
 # p_collars_2d <- collar_xy_plot(plot_df)

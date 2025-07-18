@@ -149,3 +149,112 @@ wide_gw2 <- long_gw %>%
 
 # 4) Inspect
 print(wide_gw2, n = 30, digits = 3)
+
+
+
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(scales)   # pretty_breaks()
+library(viridis)  # nice perceptual palette
+
+# ── 1.  Long format ────────────────────────────────────────────────────────
+gw_long <- wide_gw2 %>%                                    # 121 × 7
+  pivot_longer(cols = c(Ag_ppm, Au_ppb, Cu_pct, Ni_pct),   # -> 484 × 6
+               names_to  = "metal",
+               values_to = "value")
+
+# Optional: order factors the way you want them to appear
+gw_long <- gw_long %>% 
+  mutate(
+    variant = factor(variant,
+                     levels = c("GeoWarp DepthDeform",
+                                "GeoWarp DepthDeform (CV)",
+                                "GeoWarp LinearWarp",
+                                "GeoWarp LinearWarp (CV)")),
+    param   = factor(param,
+                     levels = c("L_deviation",
+                                "gamma_deviation_horizontal",
+                                "gamma_deviation_vertical",
+                                "zeta_deviation"))
+  )
+
+# ── 2.  Heat-map ───────────────────────────────────────────────────────────
+p <- ggplot(gw_long,
+            aes(x = metal,
+                y = factor(index),          # treat index as discrete for tidy spacing
+                fill = value)) +
+  geom_tile() +
+  facet_grid(variant ~ param,               # rows = fit variant, cols = parameter block
+             scales = "free_y",
+             space  = "free_y") +
+  scale_fill_viridis_c(option = "plasma",
+                       trans   = "log10",   # comment this line if you prefer linear scale
+                       na.value = "grey90",
+                       breaks  = pretty_breaks(5)) +
+  labs(x    = NULL,
+       y    = "index",
+       fill = "value") +
+  theme_minimal(base_size = 11) +
+  theme(
+    strip.text.y = element_text(angle = 0),  # keep facet labels horizontal
+    axis.text.y  = element_blank(),          # hide long list of indices
+    axis.ticks.y = element_blank(),
+    panel.spacing = unit(0.6, "lines")
+  )
+
+print(p)
+
+# ── 3.  Save to file (optional) ────────────────────────────────────────────
+ggsave("wide_gw2_heatmap.pdf", p, width = 9, height = 6, dpi = 300)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 1) install xtable if you don’t have it
+if (!requireNamespace("xtable", quietly = TRUE)) {
+  install.packages("xtable")
+}
+library(xtable)
+
+# 2) prepare the table: combine param+index, replace NA with “–”
+tbl <- wide_gw2 %>%
+  mutate(
+    Parameter = paste0(param, "_", index),
+    across(c(Ag_ppm, Au_ppb, Cu_pct, Ni_pct),
+           ~ ifelse(is.na(.), "–", formatC(., format="e", digits=3)))
+  ) %>%
+  select(Variant = variant, Parameter, Ag_ppm, Au_ppb, Cu_pct, Ni_pct)
+
+# 3) print as a LaTeX longtable
+print(
+  xtable(
+    tbl,
+    caption = "GeoWarp Vector Parameters by Variant and Metal",
+    label   = "tab:gw_params"
+  ),
+  include.rownames     = FALSE,
+  floating             = FALSE,
+  table.placement      = "!htbp",
+  tabular.environment  = "longtable",
+  booktabs             = TRUE,
+  sanitize.text.function = identity
+)
+
+
+
+
+
