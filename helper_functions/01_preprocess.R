@@ -101,6 +101,36 @@ unnorm_iso_coord <- function(coord_norm, ranges, coord = "z") {
   }
 }
 
+unnorm_iso_coord_2 <- function(coord_norm, ranges, coord = "z") {
+  
+  if (!coord %in% c("x", "y", "z"))
+    stop("'coord' must be one of 'x', 'y', 'z'")
+  
+  # 1.  Pull mins and maxs ----------------------------------------------------
+  needed <- c("x", "y", "z")
+  if (!all(needed %in% names(ranges)))
+    stop("ranges must contain $x, $y, and $z")
+  
+  get_delta <- function(ax) ranges[[ax]]$max - ranges[[ax]]$min
+  scale <- max(vapply(needed, get_delta, numeric(1)))
+  
+  coord_min <- ranges[[coord]]$min
+  
+  # 2.  If the vector already looks un-scaled (any value outside [0, 1]),
+  #     leave it untouched; otherwise un-scale it.
+  if (all(coord_norm >= 0 & coord_norm <= 1, na.rm = TRUE)) {
+    coord_min + coord_norm * scale          # un-scaled metres
+  } else {
+    coord_min + coord_norm * scale                             # already metres
+  }
+}
+
+
+
+
+
+
+
 
 unnorm_vec <- function(x_norm, rng) x_norm * (rng$max - rng$min) + rng$min
 

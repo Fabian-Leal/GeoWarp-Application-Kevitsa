@@ -207,9 +207,8 @@ plot_grade_3d_zero_origin(
 
 # Install these once if needed:
 # install.packages(c("ggmap","ggplot2","patchwork","maps"))
-
+library(png); library(ggplot2)
 library(ggmap)
-library(ggplot2)
 library(patchwork)
 library(maps)
 library(ggspatial)
@@ -402,24 +401,6 @@ pB <- ggmap(zoom_map, extent = "panel") +
 
 
 
-
-
-
-final <- pB +
-  inset_element(
-    kevitsa,
-    left   = 0.65,  # start 65% from left
-    bottom = 0.65,  # start 65% from bottom
-    right  = 1,  # end at 95% from left → width = 0.30
-    top    = 1   # end at 95% from bottom → height = 0.30
-  )
-print(final)
-
-
-
-
-library(png); library(ggplot2)
-
 img <- png::readPNG("figures/kevitsa_mine_2.png")
 
 kevitsa <- ggplot() +
@@ -439,24 +420,25 @@ kevitsa <- ggplot() +
     plot.margin  = unit(c(0,0,0,0), "pt")
   )
 
-print(kevitsa)
 
 
-
-
-
-
-# 4. Combine: place pB as an inset on top of pA --------------------------
-final_plot_swapped <- pA +
+final <- pB +
   inset_element(
-    pB,
-    left   = 0.65,   # 65% in from the left edge of pA
-    bottom = -0.3,   #  5% in from the bottom edge of pA
-    right  = 1.00,   # full width of pA
-    top    = 0.50    # up to 40% of pA’s height
+    kevitsa,
+    left   = 0.65,  # start 65% from left
+    bottom = 0.65,  # start 65% from bottom
+    right  = 1,  # end at 95% from left → width = 0.30
+    top    = 1   # end at 95% from bottom → height = 0.30
   )
+print(final)
 
-print(final_plot_swapped)
+
+
+print(pA|final)
+print(pA|pB/kevitsa)
+
+
+
 
 
 
