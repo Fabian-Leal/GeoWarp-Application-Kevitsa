@@ -37,7 +37,7 @@ fit_geowarp <- function(train, variable_variance = FALSE) {
       geowarp_linear_awu(scaling = 1,
                          prior   = list(type = "inv_uniform", shape = 0, rate = 0,
                                         lower = 1, upper = 100)),
-      geowarp_bernstein_awu(order = 30)
+      geowarp_bernstein_awu(order = 6)
     ),
     geometric_warping_unit = geowarp_geometric_warping_unit(),
     variance_model = geowarp_variance_model(

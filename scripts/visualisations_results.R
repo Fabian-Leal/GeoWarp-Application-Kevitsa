@@ -56,12 +56,12 @@ test_files  <- list.files(
 train_list <- set_names(
   train_files,
   sub("^train_data_(.*)\\.rds$", "\\1", basename(train_files))
-) %>% map(readRDS)
+) %>% purrr::map(readRDS)
 
 test_list  <- set_names(
   test_files,
   sub("^test_data_(.*)\\.rds$", "\\1", basename(test_files))
-) %>% map(readRDS)
+) %>% purrr::map(readRDS)
 # helper to un-normalise a vector given its stored min/max
 
 

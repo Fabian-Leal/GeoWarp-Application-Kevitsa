@@ -2,6 +2,10 @@
 library(dplyr)
 library(purrr)
 library(geowarp)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+library(stringr)
 
 setwd("C:/Users/23478671/Github/GeoWarp-Application-Kevitsa")
 source("helper_functions/00_utils_io.R")   # load_raw()
@@ -43,12 +47,12 @@ test_files  <- list.files(
 train_list <- set_names(
   train_files,
   sub("^train_data_(.*)\\.rds$", "\\1", basename(train_files))
-) %>% map(readRDS)
+) %>% purrr::map(readRDS)
 
 test_list  <- set_names(
   test_files,
   sub("^test_data_(.*)\\.rds$", "\\1", basename(test_files))
-) %>% map(readRDS)
+) %>% purrr::map(readRDS)
 # helper to un-normalise a vector given its stored min/max
 
 
@@ -109,7 +113,7 @@ profiles_all <- map_dfr(model_files, function(fn) {
     # warped_depth <- -unnorm_iso_coord_2(
     #   warped_coordinates(fit, df = ts)[ , 3],
     #   ranges_list[[tgt]], "z") 
-    warped_depth <- -unnorm_iso_coord_2(ts$z, ranges_list[[tgt]], "z")*(warped_coordinates(fit, df = ts)[ , 3]/ts$z)
+    warped_depth <- -unnorm_iso_coord(ts$z, ranges_list[[tgt]], "z")*(warped_coordinates(fit, df = ts)[ , 3]/ts$z)
     warped_depth_norm <- warped_coordinates(fit, df = ts)[ , 3]
     
   } else {
@@ -138,7 +142,7 @@ profiles_all <- profiles_all %>%
     fit = sub("(_[^_]+){2}$", "", model)   # gw_fit_Ag_ppm → gw_fit
   )
 
-library(stringr)
+
 gw_df <- profiles_all %>%
   # keep only the GeoWarp fits
   filter(str_detect(model, "^gw_")) %>%
@@ -155,10 +159,6 @@ gw_df <- profiles_all %>%
 distinct(gw_df, model, warping)
 
 
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(patchwork)
   
 
 # --- 1. pivot your gw_df (or profile_df) into long form if you haven’t already:
@@ -186,49 +186,96 @@ my_theme <- theme_minimal() +
   )
 
 # --- 3. build the “mean” row (one panel per metal, free x&y, grouped by warping)
+# --- 3. “mean” row ----------------------------------------------------------
+# --- label map -------------------------------------------------------------
+target_labs <- c(
+  Ag_ppm = "log Ag (ppm)",
+  Au_ppb = "log Au (ppb)",
+  Cu_pct = "log Cu (%)",
+  Ni_pct = "log Ni (%)"
+)
+
+# --- 3. “mean” row ----------------------------------------------------------
+# 0. define a nice palette
+warp_cols <- c(
+  linear    = "#1b9e77",   # green
+  nonlinear = "#d95f02"    # orange
+)
+
+# --- 3. “mean” row ----------------------------------------------------------
 p_mean <- plot_df %>%
   filter(stat == "mean") %>%
-  ggplot(aes(
-    x     = value,
-    y     = depth,
-    color = warping,
-    group = warping
-  )) +
-  geom_line(size = 0.8) +
+  ggplot(aes(x = value, y = depth, colour = warping, group = warping)) +
+  geom_line(size = 0.6) +
+  scale_colour_manual(
+    name   = "Warping",                            # keeps your legend title
+    values = warp_cols,                            # your colours
+    labels = c("LinearWarp", "DepthDeform")        # new names for linear & nonlinear
+  ) +    # ← apply palette here
   scale_y_reverse() +
-  facet_wrap(~ target, nrow = 1, scales = "free") +
-  labs(title = "Mean", y = "Depth", x = NULL) +
-  my_theme +
-  theme(legend.position = "none",
-        plot.title      = element_text(hjust = 0.5)
-  )
-
-# --- 4. build the “sd” row
-p_sd <- plot_df %>%
-  filter(stat == "sd") %>%
-  ggplot(aes(
-    x     = value,
-    y     = depth,
-    color = warping,
-    group = warping
-  )) +
-#  geom_line(size = 0.8) +
-  geom_path(size = 0.8) + 
-  scale_y_reverse() +
-  facet_wrap(~ target, nrow = 1, scales = "free") +
-  labs(title = "Standard Deviation", y = "Depth", x = NULL, color = "Warping") +
+  facet_wrap(
+    ~ target,
+    nrow           = 1,
+    scales         = "free",
+    strip.position = "bottom",
+    labeller       = as_labeller(target_labs)
+  ) +
+  labs(
+    title  = "Mean",
+    y      = "Depth",
+    x      = NULL,
+    colour = "Warping"
+  ) +
   my_theme +
   theme(
-    plot.title = element_text(hjust = 0.5)        # <— centre the row title
+    legend.position = "none",
+    plot.title      = element_text(hjust = 0.5, face = "bold"),
+    axis.title.y    = element_text(size = 12, face = "plain"),
+    strip.text      = element_text(size = 11, face = "plain")
   )
 
-# --- 5. stack them with a shared legend at the bottom
-final_plot <- p_mean / p_sd +
-  plot_layout(ncol = 1, heights = c(1, 1), guides = "collect") &
-  theme(legend.position = "bottom")
+# --- 4. “sd” row ------------------------------------------------------------
+p_sd <- plot_df %>%
+  filter(stat == "sd") %>%
+  ggplot(aes(x = value, y = depth, colour = warping, group = warping)) +
+  geom_path(size = 0.6) +
+  scale_colour_manual(
+    name   = "Warping",                            # keeps your legend title
+    values = warp_cols,                            # your colours
+    labels = c("LinearWarp", "DepthDeform")        # new names for linear & nonlinear
+  ) +    # ← and here
+  scale_y_reverse() +
+  facet_wrap(
+    ~ target,
+    nrow           = 1,
+    scales         = "free",
+    strip.position = "bottom",
+    labeller       = as_labeller(target_labs)
+  ) +
+  labs(
+    title  = "Standard Deviation",
+    y      = "Depth",
+    x      = NULL,
+    colour = "Warping"
+  ) +
+  my_theme +
+  theme(
+    plot.title   = element_text(hjust = 0.5, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "plain"),
+    strip.text   = element_text(size = 11, face = "plain")
+  )
 
-# --- 6. display
+# --- stack & draw ----------------------------------------------------------
+final_plot <- (p_mean / p_sd) +
+  plot_layout(ncol = 1, heights = c(1, 1), guides = "collect") &
+  theme(
+    legend.position  = "bottom",
+    strip.placement  = "outside"
+  )
+
 print(final_plot)
+
+
 
 
 

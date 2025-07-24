@@ -16,7 +16,7 @@ csv  <- "cluster_0_data.csv"
 # 1. load & pre-process
 set.seed(1)
 #raw   <- load_raw(csv, sample_frac = 1)
-raw <- load_raw(csv, var = "Ni_pct", sample_frac = 1)
+raw <- load_raw(csv, var = "Ag_ppm", sample_frac = 1)
 
 depth_profile_plot(raw)
 
@@ -50,12 +50,12 @@ plot_train_test_3d(plot_df, ranges = ranges)
 
 # 3. fit models
 # (a) Full warp, no vertical bases
-gw_fit_cv        <- fit_geowarp(train, variable_variance = FALSE)
+gw_fit_cv        <- fit_geowarp(train, variable_variance = TRUE)
 # (b) Full warp, with vertical bases
 #gw_vert_fit        <- fit_geowarp(train, variable_variance = FALSE)
 
 # (c) No warp, no vertical bases
-gw_fit_nw_cv <- fit_geowarp_noWarp(train, variable_variance = FALSE)
+gw_fit_nw_cv <- fit_geowarp_noWarp(train, variable_variance = TRUE)
 # (d) No warp, with vertical bases
 #gw_noWarp_vert_fit <- fit_geowarp_noWarp(train, variable_variance = FALSE)
 
@@ -223,7 +223,7 @@ print(band_plot)                    # or ggsave("band_plot.pdf", p_band, width =
 # master driver – run the full workflow for several target variables
 # -------------------------------------------------------------------------
 targets <- c("Cu_pct", "Au_ppb", "Ni_pct", "Ag_ppm")
-
+#targets <- c("Ag_ppm")
 csv_path <- "cluster_0_data.csv"
 
 all_validation <- list()   # collect the per-target metrics
@@ -301,9 +301,9 @@ for (tvar in targets) {
   
   print(validation)
 
-
+#}
   all_validation[[tvar]] <- validation         # store for later
-  
+
   ## ----------------------------------------------------------------------
   ## 5. save test set + fitted models
   ## ----------------------------------------------------------------------
@@ -311,7 +311,7 @@ for (tvar in targets) {
   test_fname <- sprintf("test_data_%s.csv", tvar)
   write.csv(test, test_fname, row.names = FALSE)
   cat("  ↳ wrote test set  ➜ ", test_fname, "\n")
-  
+
   # (b) fitted GeoWarp models
   saveRDS(gw_fit,      file = sprintf("gw_fit_%s.rds",      tvar))
   saveRDS(gw_fit_nw,   file = sprintf("gw_fit_noWarp_%s.rds", tvar))
