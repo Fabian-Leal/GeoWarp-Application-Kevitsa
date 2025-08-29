@@ -10,5 +10,3 @@ inst/examples/01-fit-vertical-only.R
 inst/examples/02-fit-3d.R
 inst/examples/01-fit-vertical-only.R
 application_kevitsa/100percentresults.txt
-*.rds
-*.csv
