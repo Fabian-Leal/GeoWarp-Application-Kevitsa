@@ -202,7 +202,7 @@ print(period_results)
 
 
 # ================================================
-# Non‐Stationarity Cycle Analysis  for Your Metals
+# Non‐Stationarity Cycle Analysis  fo Metals
 # ================================================
 
 

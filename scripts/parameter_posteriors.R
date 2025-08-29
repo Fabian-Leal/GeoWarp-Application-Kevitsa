@@ -174,15 +174,16 @@ plot_df <- gw_df %>%
 # --- 2. define a common theme
 my_theme <- theme_minimal() +
   theme(
-    axis.line         = element_line(color="black", size=0.8),
-    axis.ticks        = element_line(color="black", size=0.6),
+    text              = element_text(face = "plain"),    # everything plain
+    axis.line         = element_line(color = "black", size = 0.8),
+    axis.ticks        = element_line(color = "black", size = 0.6),
     axis.ticks.length = unit(4, "pt"),
-    axis.text         = element_text(size=10, color="black"),
-    axis.title        = element_text(size=12, face="bold"),
-    panel.grid.major  = element_line(color="grey80", size=0.3),
+    axis.text         = element_text(size = 10, color = "black", face = "plain"),
+    axis.title        = element_text(size = 12, face = "plain"),
+    panel.grid.major  = element_line(color = "grey80", size = 0.3),
     panel.grid.minor  = element_blank(),
-    strip.text        = element_text(size=11, face="bold"),
-    panel.background  = element_rect(fill="white", color=NA)
+    strip.text        = element_text(size = 11, face = "plain"),
+    panel.background  = element_rect(fill = "white", color = NA)
   )
 
 # --- 3. build the “mean” row (one panel per metal, free x&y, grouped by warping)
@@ -203,74 +204,258 @@ warp_cols <- c(
 )
 
 # --- 3. “mean” row ----------------------------------------------------------
+# --- “mean” row -------------------------------------------------------------
 p_mean <- plot_df %>%
   filter(stat == "mean") %>%
-  ggplot(aes(x = value, y = depth, colour = warping, group = warping)) +
+  ggplot(aes(x = value, y = depth,
+             colour = warping, group = warping)) +
   geom_line(size = 0.6) +
-  scale_colour_manual(
-    name   = "Warping",                            # keeps your legend title
-    values = warp_cols,                            # your colours
-    labels = c("LinearWarp", "DepthDeform")        # new names for linear & nonlinear
-  ) +    # ← apply palette here
+  scale_colour_manual(values = warp_cols,
+                      labels  = c("LinearWarp", "DepthDeform"),
+                      name    = "Warping") +
   scale_y_reverse() +
-  facet_wrap(
-    ~ target,
-    nrow           = 1,
-    scales         = "free",
-    strip.position = "bottom",
-    labeller       = as_labeller(target_labs)
-  ) +
+  facet_wrap(~ target, nrow = 1, scales = "free",
+             strip.position = "top",
+             labeller = as_labeller(target_labs)) +
   labs(
-    title  = "Mean",
-    y      = "Depth",
-    x      = NULL,
-    colour = "Warping"
+    #title = expression(mu(h)),        # ←  μ(h)
+    y     = "Depth (m)",
+    x     = NULL
   ) +
   my_theme +
   theme(
     legend.position = "none",
-    plot.title      = element_text(hjust = 0.5, face = "bold"),
-    axis.title.y    = element_text(size = 12, face = "plain"),
-    strip.text      = element_text(size = 11, face = "plain")
+    plot.title      = element_text(hjust = 0.5, face = "bold")
   )
 
-# --- 4. “sd” row ------------------------------------------------------------
+# --- “sd” row ---------------------------------------------------------------
 p_sd <- plot_df %>%
   filter(stat == "sd") %>%
-  ggplot(aes(x = value, y = depth, colour = warping, group = warping)) +
+  ggplot(aes(x = value, y = depth,
+             colour = warping, group = warping)) +
   geom_path(size = 0.6) +
-  scale_colour_manual(
-    name   = "Warping",                            # keeps your legend title
-    values = warp_cols,                            # your colours
-    labels = c("LinearWarp", "DepthDeform")        # new names for linear & nonlinear
-  ) +    # ← and here
+  scale_colour_manual(values = warp_cols,
+                      labels  = c("LinearWarp", "DepthDeform"),
+                      name    = "Warping") +
   scale_y_reverse() +
-  facet_wrap(
-    ~ target,
-    nrow           = 1,
-    scales         = "free",
-    strip.position = "bottom",
-    labeller       = as_labeller(target_labs)
-  ) +
+  facet_wrap(~ target, nrow = 1, scales = "free",
+             strip.position = "bottom",
+             labeller = as_labeller(target_labs)) +
   labs(
-    title  = "Standard Deviation",
-    y      = "Depth",
-    x      = NULL,
-    colour = "Warping"
+    #title = expression(sigma[delta](h)),   # ←  σ<sub>Δ</sub>(h)
+    y     = "Depth (m)",
+    x     = NULL
   ) +
   my_theme +
   theme(
-    plot.title   = element_text(hjust = 0.5, face = "bold"),
-    axis.title.y = element_text(size = 12, face = "plain"),
-    strip.text   = element_text(size = 11, face = "plain")
+    plot.title = element_text(hjust = 0.5, face = "bold")
   )
 
-# --- stack & draw ----------------------------------------------------------
-final_plot <- (p_mean / p_sd) +
-  plot_layout(ncol = 1, heights = c(1, 1), guides = "collect") &
+
+# # --- stack & draw ----------------------------------------------------------
+# final_plot <- (p_mean / p_sd) +
+#   plot_layout(ncol = 1, heights = c(1, 1), guides = "collect") &
+#   theme(
+#     legend.position  = "bottom",
+#     strip.placement  = "outside"
+#   )
+# 
+# print(final_plot)
+# 
+# 
+
+
+# 1. common grid of 200 depths
+depth_grid <- seq(min(gw_df$depth_norm),
+                  max(gw_df$depth_norm),
+                  length.out = 200)
+
+# 2. build splines for each fit
+splines <- gw_df %>%
+  filter(grepl("^gw_fit", model)) %>%
+  group_by(model, warping, target) %>%
+  arrange(depth_norm, .by_group = TRUE) %>%
+  summarise(
+    spl = list(smooth.spline(depth_norm, warped_norm, spar = 0.6)),
+    .groups = "drop"
+  )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A) Warp curves
+# ─────────────────────────────────────────────────────────────────────────────
+preds_warp <- splines %>%
+  mutate(
+    warp_df = map(spl, ~{
+      pr <- predict(.x, depth_grid)
+      tibble(depth_norm = pr$x, warped_norm = pr$y)
+    })
+  ) %>%
+  select(-spl) %>%
+  unnest(warp_df)
+
+warp_summary <- preds_warp %>%
+  group_by(warping, target, depth_norm) %>%
+  summarise(
+    med_warp = median(warped_norm),
+    lo25     = quantile(warped_norm, .25),
+    hi75     = quantile(warped_norm, .75),
+    .groups  = "drop"
+  )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# B) Derivative curves
+# ─────────────────────────────────────────────────────────────────────────────
+preds_deriv <- splines %>%
+  mutate(
+    deriv_df = map(spl, ~{
+      pr <- predict(.x, depth_grid, deriv = 1)
+      tibble(depth_mid = pr$x, deriv = pr$y)
+    })
+  ) %>%
+  select(-spl) %>%
+  unnest(deriv_df)
+
+
+
+
+deriv_summary <- preds_deriv %>%
+  group_by(warping, target, depth_mid) %>%
+  summarise(
+    med_der = median(deriv),
+    lo25    = quantile(deriv, .25),
+    hi75    = quantile(deriv, .75),
+    .groups = "drop"
+  )
+
+# ------------------------------------------------------------
+# 1. convert depth_mid → real depth (m)
+# ------------------------------------------------------------
+
+deriv_summary <- deriv_summary %>%             # has depth_mid in [0,1]
+  rowwise() %>%                                # because ranges differ by target
+  mutate(
+    depth_m = unnorm_iso_coord(               # minus sign if “down = positive”
+      depth_mid,
+      ranges_list[[as.character(target)]],     # ↩ target-specific ranges
+      coord = "z"
+    )
+  ) %>%
+  ungroup()
+
+deriv_summary <- deriv_summary %>%          # already has depth_m
+  arrange(target, warping, depth_m) %>%          # make sure depth ascends
+  group_by(target, warping) %>%
+  # find the last index where the derivative still changes
+  mutate(idx        = row_number(),
+         is_change  = med_der != lag(med_der, default = first(med_der)),
+         last_var_i = max(idx[is_change], na.rm = TRUE)) %>%
+  # keep rows up to that last-changing index
+  filter(idx <= last_var_i) %>%
+  select(-idx, -is_change, -last_var_i) %>%      # cleanup
+  ungroup()
+
+deriv_summary <- deriv_summary %>%               # already has depth_m
+  group_by(target) %>%                           # do the calc per metal
+  mutate(
+    depth_m = depth_m - (max(depth_m, na.rm = TRUE) +
+                           min(depth_m, na.rm = TRUE))
+  ) %>%
+  ungroup()
+
+
+# ------------------------------------------------------------
+# 2. plot against depth_m instead of depth_mid
+# ------------------------------------------------------------
+p_deriv <- ggplot(
+  deriv_summary,
+  aes(med_der, depth_m,
+      colour = warping, fill = warping, group = warping)
+) +
+  geom_ribbon(aes(xmin = lo25, xmax = hi75),
+              colour = NA, alpha = 0.25) +
+  geom_path(size = 0.6) +
+  scale_colour_manual(values = c(linear = "#1b9e77",
+                                 nonlinear = "#d95f02"),
+                      labels = c("LinearWarp", "DepthDeform"),
+                      name   = "Warping") +
+  scale_fill_manual(values = c(linear = "#1b9e77",
+                               nonlinear = "#d95f02"),
+                    labels = c("LinearWarp", "DepthDeform"),
+                    name   = "Warping") +
+  scale_y_reverse() +
+  facet_wrap(
+    ~ target,
+    nrow   = 1,            # single row
+    scales = "free_y"      # ← free Y (depth) for each facet
+  ) +
+  labs(
+    #title = expression(df[3](h)/dh),
+    y     = "Depth (m)",
+    x     = NULL
+  ) +
+  my_theme +
+  theme(
+    legend.position = "bottom",
+    plot.title      = element_text(hjust = 0.5, face = "bold"),
+    strip.placement = "outside"
+  )
+
+#print(p_deriv)
+
+
+
+
+
+p_mean  <- p_mean  + labs(x = expression(mu(h)))         # row-1 label
+p_sd    <- p_sd    + labs(x = expression(sigma[delta](h)))# row-2 label
+p_deriv <- p_deriv + labs(x = expression(df[3](h)/dh))   # row-3 label
+
+
+# leave p_mean as-is (strip.position = "bottom" so labels appear below panels)
+# hide them in rows 2 & 3
+p_sd    <- p_sd    + theme(strip.text.x = element_blank())
+p_deriv <- p_deriv + theme(strip.text.x = element_blank())
+
+
+
+warp_cols <- c(linear = "#1b9e77", nonlinear = "#d95f02")
+
+scale_colour <- scale_colour_manual(
+  values = warp_cols,
+  labels = c("LinearWarp", "DepthDeform"),
+  name   = "Warping"          # ← keep this legend
+)
+
+scale_fill <- scale_fill_manual(
+  values = warp_cols,
+  labels = c("LinearWarp", "DepthDeform"),
+  name   = "Warping",
+  guide  = "none"             # ← suppress the duplicate
+)
+
+# use these two scales in every plot ---------------------------
+p_mean  <- p_mean  + scale_colour
+p_sd    <- p_sd    + scale_colour
+p_deriv <- p_deriv + scale_colour + scale_fill   # derivative needs both
+
+
+# ── 2. remove bold from plot titles on all three rows ───────────────────────
+p_mean  <- p_mean  + theme(plot.title = element_text(hjust = 0.5, face = "plain"))
+p_sd    <- p_sd    + theme(plot.title = element_text(hjust = 0.5, face = "plain"))
+p_deriv <- p_deriv + theme(plot.title = element_text(hjust = 0.5, face = "plain"))
+
+# (everything else in your pipeline stays the same)
+library(patchwork)
+
+
+final_plot <- (p_mean / p_sd / p_deriv) +
+  plot_layout(heights = c(1, 1, 1), guides = "collect") &
   theme(
     legend.position  = "bottom",
-    strip.placement  = "outside"
+    strip.placement  = "outside",
+    strip.background = element_blank(),
+    text = element_text(face = "plain")   # ← forces plain for all text
   )
 
 print(final_plot)
@@ -286,8 +471,34 @@ print(final_plot)
 
 
 
+# Pick a color palette with enough hues for 8 lines:
+library(RColorBrewer)
+line_cols <- brewer.pal(8, "Dark2")
 
+# Create a "metal+warping" label for legend clarity
+deriv_summary$curve <- interaction(deriv_summary$target, deriv_summary$warping, sep = " - ")
 
+p_deriv_all <- ggplot(
+  deriv_summary,
+  aes(x = med_der, y = depth_m, colour = curve, fill = curve, group = curve)
+) +
+  geom_ribbon(aes(xmin = lo25, xmax = hi75), alpha = 0.15, colour = NA) +
+  geom_path(size = 0.8) +
+  scale_colour_manual(values = line_cols, name = "Metal & Warping") +
+  scale_fill_manual(values = line_cols, name = "Metal & Warping") +
+  scale_y_reverse() +
+  labs(
+    #title = expression(df[3](h)/dh),
+    y     = "Depth (m)",
+    x     = expression(df[3](h)/dh)
+  ) +
+  my_theme +
+  theme(
+    legend.position = "right",
+    plot.title      = element_text(hjust = 0.5)
+  )
+
+print(p_deriv_all)
 
 
 
@@ -348,61 +559,5 @@ p_nonlinear <- make_row(filter(plot_wide, warping == "nonlinear"), "Non-linear w
 final_plot <- p_linear / p_nonlinear + plot_layout(ncol = 1)
 
 print(final_plot)
-
-
-
-
-
-
-
-
-
-#### Warpings
-
-p_warp <- gw_df %>%                       # already in original units
-  filter(grepl("^gw_fit", model)) %>%     # only GeoWarp fits
-  ggplot(aes(x = warped_norm,              # warped z  ➜  x-axis
-             y = depth_norm,                   # real z    ➜  y-axis
-             group = model)) +            # one path per fit
-  geom_line(alpha = 0.6) +                # thin grey curves
-  scale_y_reverse() +                     # depth downwards
-  facet_grid(warping ~ target,            # rows = linear / nonlinear
-             scales = "free_x") +         # each panel its own x-range
-  labs(x = "Warped depth (zʷ)", y = "Depth (m)") +
-  theme_minimal() +
-  theme(
-    axis.line         = element_line(colour = "black"),
-    strip.text        = element_text(size = 11, face = "bold"),
-    panel.grid.major  = element_line(colour = "grey80", size = 0.3),
-    panel.grid.minor  = element_blank()
-  )
-
-print(p_warp)
-
-
-
-
-
-
-
-p_warp <- gw_df %>%                       # already in original units
-  filter(grepl("^gw_fit", model)) %>%     # only GeoWarp fits
-  ggplot(aes(x = warp_depth,              # warped z  ➜  x-axis
-             y = depth,                   # real z    ➜  y-axis
-             group = model)) +            # one path per fit
-  geom_line(alpha = 0.6) +                # thin grey curves
-  scale_y_reverse() +                     # depth downwards
-  facet_grid(warping ~ target,            # rows = linear / nonlinear
-             scales = "free_x") +         # each panel its own x-range
-  labs(x = "Warped depth (zʷ)", y = "Depth (m)") +
-  theme_minimal() +
-  theme(
-    axis.line         = element_line(colour = "black"),
-    strip.text        = element_text(size = 11, face = "bold"),
-    panel.grid.major  = element_line(colour = "grey80", size = 0.3),
-    panel.grid.minor  = element_blank()
-  )
-
-print(p_warp)
 
 
