@@ -4,7 +4,7 @@
 *.o.tmp
 *.png
 *.pdf
-*.RData
+.RData
 .Rhistory
 .Rprofile
 inst/examples/01-fit-vertical-only.R
