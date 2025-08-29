@@ -38,11 +38,11 @@ This repository contains code and data for the GeoWarp application, focused on g
    git clone [ANONYMISED]
    ```
 2. Open R and set the working directory to the repository folder.
-3. Run the main analysis script:
+3. Run the main script to perform the estimations:
    ```R
    source('scripts/main.R')
    ```
-4. Explore results in the `figures/` and `model_fits/` folders.
+4. Analyse results using the remaining scripts in the same folder.
 
 ## License
 
